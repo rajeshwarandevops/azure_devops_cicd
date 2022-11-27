@@ -1,0 +1,64 @@
+name: $(BuildDefinitionName)_$(date:yyyyMMdd)$(rev:.r)
+
+# specific path build
+trigger:
+  branches:
+    include:
+    - master
+    - releases/*
+  paths:
+    
+    exclude:
+    - readme.md
+
+
+pool:
+  name: Default #Testing with self-hosted agent
+
+pr: none
+
+variables:
+  backendServiceArm: 'azure_cicd'
+  backendAzureRmResourceGroupName: 'kbb_azuredevops_template_cicd'
+  backendAzureRmStorageAccountName: 'kbbazdevopstfstatecicd'
+  backendAzureRmContainerName: 'tfstate'
+  backendAzureRmKey: 'terraform.tfstate' 
+  environment: production
+
+stages :   
+  - stage: terraform_validate
+    jobs:
+      - template: templates/terraform-validate.yaml
+        parameters:
+          backendServiceArm: ${{ variables.backendServiceArm }}
+          backendAzureRmResourceGroupName: ${{ variables.backendAzureRmResourceGroupName }}
+          backendAzureRmStorageAccountName: ${{ variables.backendAzureRmStorageAccountName }}
+          backendAzureRmContainerName: ${{ variables.backendAzureRmContainerName }}
+          backendAzureRmKey: ${{ variables.backendAzureRmKey }}
+          environment: ${{ variables.environment }}
+
+  - stage: terraform_plan
+    dependsOn: [terraform_validate]
+    condition: succeeded('terraform_validate')
+    jobs:
+      - template: templates/terraform-plan.yaml
+        parameters:
+          backendServiceArm: ${{ variables.backendServiceArm }}
+          backendAzureRmResourceGroupName: ${{ variables.backendAzureRmResourceGroupName }}
+          backendAzureRmStorageAccountName: ${{ variables.backendAzureRmStorageAccountName }}
+          backendAzureRmContainerName: ${{ variables.backendAzureRmContainerName }}
+          backendAzureRmKey: ${{ variables.backendAzureRmKey }}
+          environment: ${{ variables.environment }}
+
+  - stage: terraform_apply
+    dependsOn: [terraform_plan]
+    condition: succeeded('terraform_plan')
+    jobs:
+      - template: templates/terraform-apply.yaml
+        parameters:
+          backendServiceArm: ${{ variables.backendServiceArm }}
+          backendAzureRmResourceGroupName: ${{ variables.backendAzureRmResourceGroupName }}
+          backendAzureRmStorageAccountName: ${{ variables.backendAzureRmStorageAccountName }}
+          backendAzureRmContainerName: ${{ variables.backendAzureRmContainerName }}
+          backendAzureRmKey: ${{ variables.backendAzureRmKey }}
+          environment: ${{ variables.environment }}
